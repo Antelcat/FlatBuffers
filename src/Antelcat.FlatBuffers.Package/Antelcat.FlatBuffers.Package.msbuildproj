@@ -1,0 +1,26 @@
+﻿<Project Sdk="Microsoft.Build.NoTargets/2.0.1" DefaultTargets="Pack">
+
+    <PropertyGroup>
+        <TargetFramework>net6.0</TargetFramework>
+        <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
+        <PackageId>Antelcat.FlatBuffers</PackageId>
+        <Version>0.1.0</Version>
+        <Authors>Antelcat</Authors>
+    </PropertyGroup>
+    
+    <ItemGroup Label="Package">
+        <None Include="..\Antelcat.FlatBuffers.SourceGenerator\bin\$(Configuration)\netstandard2.0\Antelcat.FlatBuffers.SourceGenerator.dll"
+              PackagePath="analyzers\dotnet\cs" Pack="true"/>
+        <None Include="..\FileReader\bin\Debug\net5.0\FileReader.dll" PackagePath="analyzers\dotnet\tool" Pack="true"/>
+        <None Include="linux\flatc" PackagePath="analyzers\dotnet\tool\linux" Pack="true"/>
+        <None Include="osx\flatc" PackagePath="analyzers\dotnet\tool\osx" Pack="true"/>
+        <None Include="win\flatc.exe" PackagePath="analyzers\dotnet\tool\win" Pack="true"/>
+    </ItemGroup>
+
+    <ItemGroup>
+        <Content Include="..\..\README.md">
+            <Link>README.md</Link>
+        </Content>
+    </ItemGroup>
+
+</Project>
