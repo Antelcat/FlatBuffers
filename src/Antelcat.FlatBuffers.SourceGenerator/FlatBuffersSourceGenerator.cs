@@ -38,24 +38,35 @@ public class FlatBuffersSourceGenerator : IIncrementalGenerator
 
     public void Initialize(IncrementalGeneratorInitializationContext context)
     {
-        var provider = context.SyntaxProvider.ForAttributeWithMetadataName(
-            $"{FlatcLocationAttributeGenerator.Namespace}.{FlatcLocationAttributeGenerator.AttributeName}",
+        var flatcProvider = context.SyntaxProvider.ForAttributeWithMetadataName(
+            $"{FlatcLocationAttributeGenerator.Namespace}.{FlatcLocationAttributeGenerator.FlatcLocation}",
             (n, t) => true,
             (n, t) => n);
-        context.RegisterSourceOutput(context.AdditionalTextsProvider.Collect().Combine(provider.Collect()),
+        var flatcArgumentsProvider = context.SyntaxProvider.ForAttributeWithMetadataName(
+            $"{FlatcLocationAttributeGenerator.Namespace}.{FlatcLocationAttributeGenerator.FlatcArguments}",
+            (n, t) => true,
+            (n, t) => n);
+        string[] args;
+        context.RegisterSourceOutput(context.AdditionalTextsProvider.Collect().Combine(flatcProvider.Collect().Combine(flatcArgumentsProvider.Collect())),
             (c, s) =>
             {
-                var attr = s.Right.SelectMany(x => x.Attributes)
-                    .FirstOrDefault(x => x.AttributeClass?.Name == FlatcLocationAttributeGenerator.AttributeName);
-                if (attr?.ConstructorArguments.FirstOrDefault().Value is not string flatc)
+                var flatcLocation = s.Right.Left.SelectMany(x => x.Attributes)
+                    .FirstOrDefault(x => x.AttributeClass?.Name == FlatcLocationAttributeGenerator.FlatcLocation);
+                if (flatcLocation?.ConstructorArguments.FirstOrDefault().Value is not string flatc)
                 {
                     CreateNative();
                     flatc = Flatc;
                 }
+                var flatArgument = s.Right.Right.SelectMany(x => x.Attributes)
+                    .FirstOrDefault(x => x.AttributeClass?.Name == FlatcLocationAttributeGenerator.FlatcArguments);
+                args = flatArgument?.ConstructorArguments.FirstOrDefault().Values.IsDefaultOrEmpty is true
+                    ? []
+                    : flatArgument!.ConstructorArguments.FirstOrDefault().Values.Select(x => x.Value as string ?? "")
+                        .ToArray();
 
                 foreach (var additionalText in s.Left.Where(static x => Path.GetExtension(x.Path) == ".fbs"))
                 {
-                    if (!Run(additionalText.Path, flatc)) break;
+                    if (!Run(additionalText.Path, flatc, string.Join(" ", args))) break;
                 }
 
                 foreach (var (name, content) in Collect())
@@ -66,7 +77,7 @@ public class FlatBuffersSourceGenerator : IIncrementalGenerator
             });
     }
 
-    private static bool Run(string path, string flatc)
+    private static bool Run(string path, string flatc,string? arguments = null)
     {
         new DirectoryInfo(Generated).Create();
         try
@@ -75,7 +86,7 @@ public class FlatBuffersSourceGenerator : IIncrementalGenerator
             {
                 FileName         = flatc,
                 WorkingDirectory = Generated,
-                Arguments        = $"-n {path}",
+                Arguments        = $"-n {arguments} {path}",
                 CreateNoWindow   = true,
             });
             process?.WaitForExit();

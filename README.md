@@ -28,6 +28,13 @@ add `.fbs` files in to tag `AdditionalFiles`
 
 then it will automated generate `.cs` files.
 
+## Arguments
+specified string will be appended to arguments to flatc
+
+```csharp
+[assembly:Antelcat.FlatBuffers.FlatcArguments("--cs-global-alias")]
+```
+
 ## Owns flatc?
 if you already have flatc in your device.
 

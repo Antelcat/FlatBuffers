@@ -1,10 +1,9 @@
 using System.Linq;
-using Antelcat.FlatBuffers.SourceGenerator;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Xunit;
 
-namespace FlatBuffers.SourceGenerator.Tests;
+namespace Antelcat.FlatBuffers.SourceGenerator.Tests;
 
 public class FlatBuffersSourceGeneratorTests
 {
