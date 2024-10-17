@@ -17,7 +17,7 @@ namespace {Namespace}
     public class {FlatcLocation} : global::System.Attribute
     {{
         /// <summary>
-        /// Local disc path of flatc
+        /// Local disc path of flatc, accepts relative path from declared file
         /// </summary>
         /// <param name=""path""></param>
         public {FlatcLocation}(string path){{}}

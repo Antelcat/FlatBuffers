@@ -1,4 +1,5 @@
 using System.Linq;
+using System.Runtime.Serialization;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Xunit;
@@ -35,6 +36,12 @@ partial class Vector3
     }
 }
 ";
+
+    public enum EE
+    {
+        [EnumMember(Value ="a")]
+        A
+    }
 
     [Fact]
     public void GenerateReportMethod()

@@ -6,6 +6,7 @@ using System.IO;
 using System.Linq;
 using System.Runtime.InteropServices;
 using System.Text;
+using System.Threading.Tasks;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 
@@ -19,8 +20,6 @@ public class FlatBuffersSourceGenerator : IIncrementalGenerator
     /// </summary>
     private static readonly string Current =
         Path.GetDirectoryName(typeof(FlatBuffersSourceGenerator).Assembly.Location)!;
-
-    private static readonly string Generated = Path.Combine(Current, nameof(Generated));
 
     /// <summary>
     /// /analyzer/dotnet/tool/{arch}/flatc
@@ -40,58 +39,101 @@ public class FlatBuffersSourceGenerator : IIncrementalGenerator
     {
         var flatcProvider = context.SyntaxProvider.ForAttributeWithMetadataName(
             $"{FlatcLocationAttributeGenerator.Namespace}.{FlatcLocationAttributeGenerator.FlatcLocation}",
-            (n, t) => true,
-            (n, t) => n);
+            (_, _) => true,
+            (n, _) => n);
         var flatcArgumentsProvider = context.SyntaxProvider.ForAttributeWithMetadataName(
             $"{FlatcLocationAttributeGenerator.Namespace}.{FlatcLocationAttributeGenerator.FlatcArguments}",
-            (n, t) => true,
+            (_, t) => true,
             (n, t) => n);
         string[] args;
-        context.RegisterSourceOutput(context.AdditionalTextsProvider.Collect().Combine(flatcProvider.Collect().Combine(flatcArgumentsProvider.Collect())),
+        string?   flatc = null;
+        context.RegisterSourceOutput(
+            context.AdditionalTextsProvider.Collect()
+                .Combine(flatcProvider.Collect().Combine(flatcArgumentsProvider.Collect())),
             (c, s) =>
             {
-                var flatcLocation = s.Right.Left.SelectMany(x => x.Attributes)
-                    .FirstOrDefault(x => x.AttributeClass?.Name == FlatcLocationAttributeGenerator.FlatcLocation);
-                if (flatcLocation?.ConstructorArguments.FirstOrDefault().Value is not string flatc)
+                var stamp    = Guid.NewGuid().ToString().Replace("-", "");
+                var tempPath = Path.Combine(Current, stamp);
+                if (flatc is null) //get flatc
                 {
-                    CreateNative();
-                    flatc = Flatc;
+                    if (!s.Right.Left.Any() || s.Right.Left.FirstOrDefault()
+                            .Attributes
+                            .FirstOrDefault(static x =>
+                                x.AttributeClass?.Name == FlatcLocationAttributeGenerator.FlatcLocation)
+                            ?.ConstructorArguments.FirstOrDefault().Value is not string tmp)
+                    {
+                        CreateNative();
+                        flatc = Flatc;
+                    }
+                    else if (!Path.IsPathRooted(tmp))
+                    {
+                        var loc  = s.Right.Left.FirstOrDefault().TargetNode.GetLocation();
+                        var span = loc.GetMappedLineSpan().ToString();
+                        var file = span.Substring(0, span.LastIndexOf(' ') - 1);
+                        var dir  = Path.Combine(Path.GetDirectoryName(file)!, tmp);
+                        flatc = Path.GetFullPath(dir);
+                    }
+                    else
+                    {
+                        flatc = tmp;
+                    }
                 }
-                var flatArgument = s.Right.Right.SelectMany(x => x.Attributes)
-                    .FirstOrDefault(x => x.AttributeClass?.Name == FlatcLocationAttributeGenerator.FlatcArguments);
-                args = flatArgument?.ConstructorArguments.FirstOrDefault().Values.IsDefaultOrEmpty is true
+
+                var flatArgument = s.Right
+                    .Right
+                    .SelectMany(static x => x.Attributes)
+                    .FirstOrDefault(static x =>
+                        x.AttributeClass?.Name == FlatcLocationAttributeGenerator.FlatcArguments);
+                args = flatArgument?
+                    .ConstructorArguments
+                    .FirstOrDefault()
+                    .Values
+                    .IsDefaultOrEmpty is true
                     ? []
-                    : flatArgument!.ConstructorArguments.FirstOrDefault().Values.Select(x => x.Value as string ?? "")
+                    : flatArgument!
+                        .ConstructorArguments
+                        .FirstOrDefault()
+                        .Values
+                        .Select(x => x.Value as string ?? "")
                         .ToArray();
-
-                foreach (var additionalText in s.Left.Where(static x => Path.GetExtension(x.Path) == ".fbs"))
+                
+                var tempDir = new DirectoryInfo(tempPath);
+                tempDir.Create();
+                foreach (var additionalText in s.Left
+                    .Where(static x => Path.GetExtension(x.Path) == ".fbs"))
                 {
-                    if (!Run(additionalText.Path, flatc, string.Join(" ", args))) break;
+                    if (!Generate(additionalText.Path, tempPath, flatc, string.Join(" ", args))) break;
                 }
 
-                foreach (var (name, content) in Collect())
+                foreach (var (name, content) in Collect(tempPath))
                 {
                     c.AddSource(name.Replace('/', '.').Replace('\\', '.'),
                         SyntaxFactory.ParseCompilationUnit(content).GetText(Encoding.UTF8));
                 }
+
+                Retry(() => tempDir.Delete(true), static ex => ex is IOException);
             });
     }
 
-    private static bool Run(string path, string flatc,string? arguments = null)
+    private static bool Generate(string fbs, 
+                                 string outputDir, 
+                                 string flatc, 
+                                 string? arguments = null)
     {
-        new DirectoryInfo(Generated).Create();
         try
         {
             var process = Process.Start(new ProcessStartInfo
             {
                 FileName         = flatc,
-                WorkingDirectory = Generated,
-                Arguments        = $"-n {arguments} {path}",
+                WorkingDirectory = outputDir,
+                Arguments        = $"-n {arguments} {fbs}",
                 CreateNoWindow   = true,
             });
-            process?.WaitForExit();
+            while (process?.HasExited is false)
+            {
+            }
         }
-        catch (Win32Exception ex)
+        catch (Win32Exception)
         {
             return false;
         }
@@ -116,17 +158,19 @@ public class FlatBuffersSourceGenerator : IIncrementalGenerator
         }
     }
 
-    private static IEnumerable<(string name, string content)> Collect()
+    private static IEnumerable<(string name, string content)> Collect(string directory)
     {
-        foreach (var file in CollectCSharpFiles(Current))
+        foreach (var file in CollectCSharpFiles(directory))
         {
-            using var stream = new FileStream(file.FullName, FileMode.Open);
+            using var stream =
+                Retry(() => new FileStream(file.FullName, FileMode.Open, FileAccess.Read, FileShare.Read),
+                    ex => ex is IOException);
+            if (stream is null) continue;
             using var reader = new StreamReader(stream);
-            var       text   = reader.ReadToEnd();
-            yield return (file.FullName.Substring(Generated.Length + 1), text);
+            yield return (file.FullName.Substring(directory.Length + 1), reader.ReadToEnd());
         }
 
-        new DirectoryInfo(Generated).Delete(true);
+       
     }
 
     private static void WriteNotExist(string name, Stream source)
@@ -172,5 +216,44 @@ public class FlatBuffersSourceGenerator : IIncrementalGenerator
                 WriteNotExist(Path.GetFileName(Flatc), stream);
             }
         }
+    }
+
+    private static void Retry(Action action, Func<Exception, bool> again)
+    {
+        while (true)
+        {
+            try
+            {
+                action();
+                break;
+            }
+            catch (Exception ex)
+            {
+                if (!again(ex))
+                {
+                    break;
+                }
+            }
+        }
+    }
+
+    private static T? Retry<T>(Func<T> func, Func<Exception, bool> again)
+    {
+        while (true)
+        {
+            try
+            {
+                return func();
+            }
+            catch (Exception ex)
+            {
+                if (!again(ex))
+                {
+                    break;
+                }
+            }
+        }
+
+        return default;
     }
 }
