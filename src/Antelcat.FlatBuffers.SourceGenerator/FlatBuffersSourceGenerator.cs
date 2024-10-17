@@ -4,7 +4,6 @@ using System.ComponentModel;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
-using System.Reflection.PortableExecutable;
 using System.Runtime.InteropServices;
 using System.Text;
 using Microsoft.CodeAnalysis;
@@ -32,29 +31,24 @@ namespace {Namespace}
     /// <summary>
     /// /analyzer/dotnet/cs
     /// </summary>
-    private static readonly string Current = Path.GetDirectoryName(typeof(FlatBuffersSourceGenerator).Assembly.Location)!;
+    private static readonly string Current =
+        Path.GetDirectoryName(typeof(FlatBuffersSourceGenerator).Assembly.Location)!;
+
+    private static readonly string Generated = Path.Combine(Current, nameof(Generated));
 
     /// <summary>
     /// /analyzer/dotnet/tool/{arch}/flatc
     /// </summary>
-    private static readonly string Flatc = Path.Combine(Path.GetDirectoryName(Current)!, "tool",
-        RuntimeInformation.IsOSPlatform(OSPlatform.Windows)
-            ? "win"
+    private static readonly string Flatc = Path.Combine(Current,
+        "flatc-" +
+        (RuntimeInformation.IsOSPlatform(OSPlatform.Windows)
+            ? "win.exe"
             : RuntimeInformation.IsOSPlatform(OSPlatform.Linux)
                 ? "linux"
-                : RuntimeInformation.IsOSPlatform(OSPlatform.OSX)
+                : RuntimeInformation.IsOSPlatform(
+                    OSPlatform.OSX)
                     ? "osx"
-                    : throw new InvalidOperationException(), "flatc");
-
-    /// <summary>
-    /// /analyzer/dotnet/tool/FileReader.dll
-    /// </summary>
-    private static readonly string FileReader = Path.Combine(Path.GetDirectoryName(Current)!, "tool", "FileReader.dll");
-   
-    /// <summary>
-    /// /analyzer/dotnet/cs
-    /// </summary>
-    private static readonly string Temp = Path.GetDirectoryName(typeof(FlatBuffersSourceGenerator).Assembly.Location)!;
+                    : throw new InvalidOperationException()));
 
     public void Initialize(IncrementalGeneratorInitializationContext context)
     {
@@ -70,7 +64,11 @@ namespace {Namespace}
             {
                 var attr = s.Right.SelectMany(x => x.Attributes)
                     .FirstOrDefault(x => x.AttributeClass?.Name == AttributeName);
-                if (attr?.ConstructorArguments.FirstOrDefault().Value is not string flatc) flatc = Flatc;
+                if (attr?.ConstructorArguments.FirstOrDefault().Value is not string flatc)
+                {
+                    CreateNative();
+                    flatc = Flatc;
+                }
                 foreach (var additionalText in s.Left.Where(static x => Path.GetExtension(x.Path) == ".fbs"))
                 {
                     if (!Run(additionalText.Path, flatc)) break;
@@ -81,17 +79,19 @@ namespace {Namespace}
                     c.AddSource(name.Replace('/', '.').Replace('\\', '.'),
                         SyntaxFactory.ParseCompilationUnit(content).GetText(Encoding.UTF8));
                 }
+
             });
     }
 
     private static bool Run(string path, string flatc)
     {
+        new DirectoryInfo(Generated).Create();
         try
         {
             var process = Process.Start(new ProcessStartInfo
             {
                 FileName         = flatc,
-                WorkingDirectory = Temp,
+                WorkingDirectory = Generated,
                 Arguments        = $"-n {path}",
                 CreateNoWindow   = true,
             });
@@ -105,50 +105,76 @@ namespace {Namespace}
         return true;
     }
 
+    private static IEnumerable<FileInfo> CollectCSharpFiles(string directory)
+    {
+        var dir = new DirectoryInfo(directory);
+        foreach (var file in dir.GetFiles("*.cs"))
+        {
+            yield return file;
+        }
+        foreach (var directoryInfo in dir.GetDirectories())
+        {
+            foreach (var file in CollectCSharpFiles(directoryInfo.FullName))
+            {
+                yield return file;
+            }
+        }
+    }
+    
     private static IEnumerable<(string name, string content)> Collect()
     {
-        Process? process;
+        foreach (var file in CollectCSharpFiles(Current))
+        {
+            using var stream = new FileStream(file.FullName, FileMode.Open);
+            using var reader = new StreamReader(stream);
+            var       text   = reader.ReadToEnd();
+            yield return (file.FullName.Substring(Generated.Length + 1), text);
+        }
+        new DirectoryInfo(Generated).Delete(true);
+    }
+
+    private static void WriteNotExist(string name, Stream source)
+    {
+        var full = Path.Combine(Current, name);
         try
         {
-            process = Process.Start(new ProcessStartInfo
-            {
-                FileName               = "dotnet",
-                Arguments              = $"{FileReader} {Temp}",
-                RedirectStandardOutput = true,
-                CreateNoWindow         = true,
-            });
+            using var write = new FileStream(full, FileMode.Open); //already exists ?
         }
-        catch (Win32Exception)
+        catch (FileNotFoundException)
         {
-            yield break;
+            using var write  = new FileStream(full, FileMode.Create);
+            var       buffer = new byte[source.Length];
+            var       length = source.Read(buffer, 0, buffer.Length);
+            write.Write(buffer, 0, length);
         }
+    }
 
-        if (process == null) yield break;
-        while (!process.HasExited)
+    private static void CreateNative()
+    {
+        var ass = typeof(FlatBuffersSourceGenerator).Assembly;
+        foreach (var name in ass.GetManifestResourceNames())
         {
-            string? output;
-            try
+            if (!name.Contains("flatc")) continue;
+            if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows) && name.Contains("win"))
             {
-                output = process.StandardOutput.ReadLine();
-            }
-            catch
-            {
-                yield break;
+                using var stream = ass.GetManifestResourceStream(name);
+                if (stream is null) continue;
+                WriteNotExist(Path.GetFileName(Flatc), stream);
             }
 
-            if (output is null) yield break;
-            if (!output.StartsWith("-n")) continue;
-            var          name    = output.Substring(2);
-            List<string> content = [];
-            do
+            if (RuntimeInformation.IsOSPlatform(OSPlatform.Linux) && name.Contains("linux"))
             {
-                var line = process.StandardOutput.ReadLine();
-                if (line is null || line.StartsWith("-f") || !line.StartsWith("-c")) break;
-                content.Add(line.Substring(2));
-            } while (true);
+                using var stream = ass.GetManifestResourceStream(name);
+                if (stream is null) continue;
+                WriteNotExist(Path.GetFileName(Flatc), stream);
+            }
 
-            yield return (name, string.Join("\n", content));
+            if (RuntimeInformation.IsOSPlatform(OSPlatform.OSX) && name.Contains("osx"))
+            {
+                using var stream = ass.GetManifestResourceStream(name);
+                if (stream is null) continue;
+                WriteNotExist(Path.GetFileName(Flatc), stream);
+            }
         }
-
     }
 }

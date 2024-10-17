@@ -6,8 +6,6 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Antelcat.FlatBuffers.Source
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Antelcat.FlatBuffers.SourceGenerator.Tests", "Antelcat.FlatBuffers.SourceGenerator.Tests\Antelcat.FlatBuffers.SourceGenerator.Tests.csproj", "{30F2C89F-4C39-4A81-A4D6-17EA1CB1B96F}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "FileReader", "FileReader\FileReader.csproj", "{69CC55AE-BA6C-4FBA-B40C-2AA3166710C8}"
-EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Antelcat.FlatBuffers.Package", "Antelcat.FlatBuffers.Package\Antelcat.FlatBuffers.Package.msbuildproj", "{61A17623-E0A9-4FA0-98DB-4F49F6BE5748}"
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "_", "_", "{007B3D01-C6D8-4580-BC07-896EF2D46EF4}"
@@ -30,10 +28,6 @@ Global
 		{30F2C89F-4C39-4A81-A4D6-17EA1CB1B96F}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{30F2C89F-4C39-4A81-A4D6-17EA1CB1B96F}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{30F2C89F-4C39-4A81-A4D6-17EA1CB1B96F}.Release|Any CPU.Build.0 = Release|Any CPU
-		{69CC55AE-BA6C-4FBA-B40C-2AA3166710C8}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{69CC55AE-BA6C-4FBA-B40C-2AA3166710C8}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{69CC55AE-BA6C-4FBA-B40C-2AA3166710C8}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{69CC55AE-BA6C-4FBA-B40C-2AA3166710C8}.Release|Any CPU.Build.0 = Release|Any CPU
 		{61A17623-E0A9-4FA0-98DB-4F49F6BE5748}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
 		{61A17623-E0A9-4FA0-98DB-4F49F6BE5748}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{61A17623-E0A9-4FA0-98DB-4F49F6BE5748}.Release|Any CPU.ActiveCfg = Release|Any CPU

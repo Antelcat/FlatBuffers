@@ -4,22 +4,36 @@
         <TargetFramework>net6.0</TargetFramework>
         <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
         <PackageId>Antelcat.FlatBuffers</PackageId>
-        <Version>0.1.0</Version>
+        <Version>0.1.0.3</Version>
         <Authors>Antelcat</Authors>
+        <Copyright>Copyright Antelcat. All rights reserved</Copyright>
+        <PackageProjectUrl>https://github.com/Antelcat/FlatBuffers</PackageProjectUrl>
+        <PackageIcon>Icon.png</PackageIcon>
+        <RepositoryUrl>https://github.com/Antelcat/FlatBuffers.git</RepositoryUrl>
+        <RepositoryType>git</RepositoryType>
+        <PackageLicenseExpression>Apache-2.0</PackageLicenseExpression>
+        <PackageReadmeFile>README.md</PackageReadmeFile>
+        <Title>Antelcat.FlatBuffers</Title>
+        <PackageTags>roslyn;flatbuffers;generator</PackageTags>
+        <Product>Antelcat.FlatBuffers</Product>
+        <AssemblyVersion>0.1.0.3</AssemblyVersion>
+        <FileVersion>0.1.0.3</FileVersion>
     </PropertyGroup>
-    
+
     <ItemGroup Label="Package">
         <None Include="..\Antelcat.FlatBuffers.SourceGenerator\bin\$(Configuration)\netstandard2.0\Antelcat.FlatBuffers.SourceGenerator.dll"
               PackagePath="analyzers\dotnet\cs" Pack="true"/>
-        <None Include="..\FileReader\bin\Debug\net5.0\FileReader.dll" PackagePath="analyzers\dotnet\tool" Pack="true"/>
-        <None Include="linux\flatc" PackagePath="analyzers\dotnet\tool\linux" Pack="true"/>
-        <None Include="osx\flatc" PackagePath="analyzers\dotnet\tool\osx" Pack="true"/>
-        <None Include="win\flatc.exe" PackagePath="analyzers\dotnet\tool\win" Pack="true"/>
     </ItemGroup>
 
     <ItemGroup>
+        <None Include="Icon.png">
+            <Pack>True</Pack>
+            <PackagePath>\</PackagePath>
+        </None>
         <Content Include="..\..\README.md">
             <Link>README.md</Link>
+            <Pack>True</Pack>
+            <PackagePath>\</PackagePath>
         </Content>
     </ItemGroup>
 

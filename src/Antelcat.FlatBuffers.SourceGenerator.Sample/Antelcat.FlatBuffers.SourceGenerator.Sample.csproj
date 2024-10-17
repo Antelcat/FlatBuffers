@@ -6,7 +6,7 @@
     </PropertyGroup>
 
     <ItemGroup>
-        <ProjectReference Include="..\Antelcat.FlatBuffers.SourceGenerator\Antelcat.FlatBuffers.SourceGenerator.csproj" OutputItemType="Analyzer" ReferenceOutputAssembly="false" />
+      <ProjectReference OutputItemType="Analyzer" ReferenceOutputAssembly="false" Include="..\Antelcat.FlatBuffers.SourceGenerator\Antelcat.FlatBuffers.SourceGenerator.csproj" />
     </ItemGroup>
 
     <ItemGroup>
