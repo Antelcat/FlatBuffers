@@ -5,10 +5,12 @@ using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Runtime.InteropServices;
+using System.Security.Cryptography.X509Certificates;
 using System.Text;
 using System.Threading.Tasks;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
+using Microsoft.CodeAnalysis.CSharp.Syntax;
 
 namespace Antelcat.FlatBuffers.SourceGenerator;
 
@@ -20,6 +22,8 @@ public class FlatBuffersSourceGenerator : IIncrementalGenerator
     /// </summary>
     private static readonly string Current =
         Path.GetDirectoryName(typeof(FlatBuffersSourceGenerator).Assembly.Location)!;
+
+    private static readonly object RunLocker = new();
 
     /// <summary>
     /// /analyzer/dotnet/tool/{arch}/flatc
@@ -46,7 +50,7 @@ public class FlatBuffersSourceGenerator : IIncrementalGenerator
             (_, t) => true,
             (n, t) => n);
         string[] args;
-        string?   flatc = null;
+        string?  flatc = null;
         context.RegisterSourceOutput(
             context.AdditionalTextsProvider.Collect()
                 .Combine(flatcProvider.Collect().Combine(flatcArgumentsProvider.Collect())),
@@ -96,13 +100,17 @@ public class FlatBuffersSourceGenerator : IIncrementalGenerator
                         .Values
                         .Select(x => x.Value as string ?? "")
                         .ToArray();
-                
+
                 var tempDir = new DirectoryInfo(tempPath);
                 tempDir.Create();
-                foreach (var additionalText in s.Left
-                    .Where(static x => Path.GetExtension(x.Path) == ".fbs"))
+
+                if (!Generate(tempPath,
+                    flatc,
+                    string.Join(" ", args),
+                    s.Left.Where(static x => Path.GetExtension(x.Path) == ".fbs")
+                        .Select(x => x.Path).ToArray()))
                 {
-                    if (!Generate(additionalText.Path, tempPath, flatc, string.Join(" ", args))) break;
+                    return;
                 }
 
                 foreach (var (name, content) in Collect(tempPath))
@@ -115,27 +123,35 @@ public class FlatBuffersSourceGenerator : IIncrementalGenerator
             });
     }
 
-    private static bool Generate(string fbs, 
-                                 string outputDir, 
-                                 string flatc, 
-                                 string? arguments = null)
+    private static bool Generate(string outputDir,
+                                 string flatc,
+                                 string? arguments = null,
+                                 params string[] fbs)
     {
-        try
+        foreach (var rest in ShorterThan(fbs,
+            2080 - flatc.Length - $"-n {arguments}".Length, // rest length for fbs
+            (each, _) => ' ' + each))
         {
-            var process = Process.Start(new ProcessStartInfo
+            lock (RunLocker)
             {
-                FileName         = flatc,
-                WorkingDirectory = outputDir,
-                Arguments        = $"-n {arguments} {fbs}",
-                CreateNoWindow   = true,
-            });
-            while (process?.HasExited is false)
-            {
+                try
+                {
+                    var process = Process.Start(new ProcessStartInfo
+                    {
+                        FileName         = flatc,
+                        WorkingDirectory = outputDir,
+                        Arguments        = $"-n {arguments}{rest}",
+                        CreateNoWindow   = true,
+                    });
+                    while (process?.HasExited is false)
+                    {
+                    }
+                }
+                catch (Win32Exception)
+                {
+                    return false;
+                }
             }
-        }
-        catch (Win32Exception)
-        {
-            return false;
         }
 
         return true;
@@ -169,8 +185,6 @@ public class FlatBuffersSourceGenerator : IIncrementalGenerator
             using var reader = new StreamReader(stream);
             yield return (file.FullName.Substring(directory.Length + 1), reader.ReadToEnd());
         }
-
-       
     }
 
     private static void WriteNotExist(string name, Stream source)
@@ -255,5 +269,27 @@ public class FlatBuffersSourceGenerator : IIncrementalGenerator
         }
 
         return default;
+    }
+
+    private static IEnumerable<string> ShorterThan(IEnumerable<string> inputs,
+                                                   int max,
+                                                   Func<string, int, string>? modify = null)
+    {
+        var sb = new StringBuilder();
+        foreach (var (input, index) in inputs.Select(static (x, i) => (x, i)))
+        {
+            var next = modify?.Invoke(input, index) ?? input;
+            if (next.Length + sb.Length > max)
+            {
+                yield return sb.ToString();
+                sb = new StringBuilder(modify?.Invoke(input, index) ?? input);
+            }
+            else
+            {
+                sb = sb.Append(next);
+            }
+        }
+
+        yield return sb.ToString();
     }
 }

@@ -14,7 +14,7 @@ public class FlatcLocationAttributeGenerator : IIncrementalGenerator
 namespace {Namespace}
 {{
     [global::System.AttributeUsage(global::System.AttributeTargets.Assembly)]
-    public class {FlatcLocation} : global::System.Attribute
+    internal class {FlatcLocation} : global::System.Attribute
     {{
         /// <summary>
         /// Local disc path of flatc, accepts relative path from declared file
@@ -29,7 +29,7 @@ namespace {Namespace}
 namespace {Namespace}
 {{
     [global::System.AttributeUsage(global::System.AttributeTargets.Assembly)]
-    public class {FlatcArguments} : global::System.Attribute
+    internal class {FlatcArguments} : global::System.Attribute
     {{
         /// <summary>
         /// arguments used in flatc
@@ -38,8 +38,6 @@ namespace {Namespace}
         public {FlatcArguments}(params string[] arguments){{}}
     }}
 }}";
-    
-
     
     public void Initialize(IncrementalGeneratorInitializationContext context)
     {

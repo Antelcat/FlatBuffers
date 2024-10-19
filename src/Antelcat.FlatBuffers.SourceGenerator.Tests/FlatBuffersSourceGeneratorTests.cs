@@ -1,13 +1,24 @@
+using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Runtime.Serialization;
+using System.Text;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Xunit;
+using Xunit.Abstractions;
 
 namespace Antelcat.FlatBuffers.SourceGenerator.Tests;
 
 public class FlatBuffersSourceGeneratorTests
 {
+    private readonly ITestOutputHelper testOutputHelper;
+
+    public FlatBuffersSourceGeneratorTests(ITestOutputHelper testOutputHelper)
+    {
+        this.testOutputHelper = testOutputHelper;
+    }
+
     private const string VectorClassText = @"
 namespace TestNamespace;
 
@@ -39,8 +50,7 @@ partial class Vector3
 
     public enum EE
     {
-        [EnumMember(Value ="a")]
-        A
+        [EnumMember(Value = "a")] A
     }
 
     [Fact]
@@ -69,5 +79,42 @@ partial class Vector3
         // Complex generators should be tested using text comparison.
         Assert.Equal(ExpectedGeneratedClassText, generatedFileSyntax.GetText().ToString(),
             ignoreLineEndingDifferences: true);
+    }
+
+    [Fact]
+    public void Tests()
+    {
+        var mark = 0;
+        foreach (var s in ShorterThan(["123", "456", "789", "1011", "1213"], 7, (s, _) =>
+            {
+                var ret = mark is 0 ? s : ' ' + s;
+                mark++;
+                return ret;
+            }))
+        {
+            mark = 0;
+            testOutputHelper.WriteLine(s);
+        }
+    }
+
+    private static IEnumerable<string> ShorterThan(IEnumerable<string> inputs, int max,
+                                                   Func<string, int, string>? modify = null)
+    {
+        var sb = new StringBuilder();
+        foreach (var (input, index) in inputs.Select(static (x, i) => (x, i)))
+        {
+            var next = modify?.Invoke(input, index) ?? input;
+            if (next.Length + sb.Length > max)
+            {
+                yield return sb.ToString();
+                sb = new StringBuilder(modify?.Invoke(input, index) ?? input);
+            }
+            else
+            {
+                sb = sb.Append(next);
+            }
+        }
+
+        yield return sb.ToString();
     }
 }
