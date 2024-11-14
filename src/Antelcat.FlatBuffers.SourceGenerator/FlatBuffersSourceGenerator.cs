@@ -47,20 +47,29 @@ public class FlatBuffersSourceGenerator : IIncrementalGenerator
             (n, _) => n);
         var flatcArgumentsProvider = context.SyntaxProvider.ForAttributeWithMetadataName(
             $"{FlatcLocationAttributeGenerator.Namespace}.{FlatcLocationAttributeGenerator.FlatcArguments}",
-            (_, t) => true,
+            (_, _) => true,
+            (n, t) => n);
+        var flatcReplaceProvider =context.SyntaxProvider.ForAttributeWithMetadataName(
+            $"{FlatcLocationAttributeGenerator.Namespace}.{FlatcLocationAttributeGenerator.FlatcReplaces}",
+            (_, _) => true,
             (n, t) => n);
         string[] args;
         string?  flatc = null;
         context.RegisterSourceOutput(
             context.AdditionalTextsProvider.Collect()
-                .Combine(flatcProvider.Collect().Combine(flatcArgumentsProvider.Collect())),
+                .Combine(flatcProvider.Collect()
+                    .Combine(flatcArgumentsProvider.Collect()
+                        .Combine(flatcReplaceProvider.Collect()))),
             (c, s) =>
             {
-                var stamp    = Guid.NewGuid().ToString().Replace("-", "");
-                var tempPath = Path.Combine(Current, stamp);
+                var flatcLocations = s.Right.Left;
+                var flatcArguments = s.Right.Right.Left;
+                var flatcReplaces  = s.Right.Right.Right;
+                var stamp          = Guid.NewGuid().ToString().Replace("-", "");
+                var tempPath       = Path.Combine(Current, stamp);
                 if (flatc is null) //get flatc
                 {
-                    if (!s.Right.Left.Any() || s.Right.Left.FirstOrDefault()
+                    if (!flatcLocations.Any() || flatcLocations.FirstOrDefault()
                             .Attributes
                             .FirstOrDefault(static x =>
                                 x.AttributeClass?.Name == FlatcLocationAttributeGenerator.FlatcLocation)
@@ -71,7 +80,7 @@ public class FlatBuffersSourceGenerator : IIncrementalGenerator
                     }
                     else if (!Path.IsPathRooted(tmp))
                     {
-                        var loc  = s.Right.Left.FirstOrDefault().TargetNode.GetLocation();
+                        var loc  = flatcLocations.FirstOrDefault().TargetNode.GetLocation();
                         var span = loc.GetMappedLineSpan().ToString();
                         var file = span.Substring(0, span.LastIndexOf(' ') - 1);
                         var dir  = Path.Combine(Path.GetDirectoryName(file)!, tmp);
@@ -83,8 +92,7 @@ public class FlatBuffersSourceGenerator : IIncrementalGenerator
                     }
                 }
 
-                var flatArgument = s.Right
-                    .Right
+                var flatArgument = flatcArguments
                     .SelectMany(static x => x.Attributes)
                     .FirstOrDefault(static x =>
                         x.AttributeClass?.Name == FlatcLocationAttributeGenerator.FlatcArguments);
@@ -104,6 +112,16 @@ public class FlatBuffersSourceGenerator : IIncrementalGenerator
                 var tempDir = new DirectoryInfo(tempPath);
                 tempDir.Create();
 
+                var flatReplaces = flatcReplaces
+                    .SelectMany(static x => x.Attributes)
+                    .Where(static x =>
+                        x.AttributeClass?.Name == FlatcLocationAttributeGenerator.FlatcReplaces)
+                    .Select(static x => (
+                            from: x.ConstructorArguments[0].Value as string,
+                            to: x.ConstructorArguments[1].Value as string
+                        )
+                    ).ToArray();
+
                 if (!Generate(tempPath,
                     flatc,
                     string.Join(" ", args),
@@ -115,8 +133,10 @@ public class FlatBuffersSourceGenerator : IIncrementalGenerator
 
                 foreach (var (name, content) in Collect(tempPath))
                 {
+                    var fin = flatReplaces.Aggregate(content, (a, config)
+                        => a.Replace(config.from!, config.to!));
                     c.AddSource(name.Replace('/', '.').Replace('\\', '.'),
-                        SyntaxFactory.ParseCompilationUnit(content).GetText(Encoding.UTF8));
+                        SyntaxFactory.ParseCompilationUnit(fin).GetText(Encoding.UTF8));
                 }
 
                 Retry(() => tempDir.Delete(true), static ex => ex is IOException);
