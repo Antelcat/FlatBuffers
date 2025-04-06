@@ -4,7 +4,7 @@
         <TargetFramework>netstandard2.1</TargetFramework>
         <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
         <PackageId>Antelcat.FlatBuffers</PackageId>
-        <Version>1.0.0</Version>
+        <Version>25.1.24</Version>
         <Authors>Antelcat</Authors>
         <Copyright>Copyright Antelcat. All rights reserved</Copyright>
         <PackageProjectUrl>https://github.com/Antelcat/FlatBuffers</PackageProjectUrl>
@@ -19,7 +19,7 @@
         <AssemblyVersion>1.0.0</AssemblyVersion>
         <FileVersion>1.0.0</FileVersion>
         <Description>Auto-generate csharp codes from .fbs files</Description>
-        <PackageReleaseNotes>collect into on generation</PackageReleaseNotes>
+        <PackageReleaseNotes>Update to 25.1.24</PackageReleaseNotes>
     </PropertyGroup>
 
     <ItemGroup Label="Package">

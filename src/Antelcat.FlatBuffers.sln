@@ -9,6 +9,9 @@ EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Antelcat.FlatBuffers.Package", "Antelcat.FlatBuffers.Package\Antelcat.FlatBuffers.Package.msbuildproj", "{61A17623-E0A9-4FA0-98DB-4F49F6BE5748}"
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "_", "_", "{007B3D01-C6D8-4580-BC07-896EF2D46EF4}"
+	ProjectSection(SolutionItems) = preProject
+		..\README.md = ..\README.md
+	EndProjectSection
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution

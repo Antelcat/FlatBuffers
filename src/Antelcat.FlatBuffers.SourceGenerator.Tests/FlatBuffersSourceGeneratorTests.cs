@@ -10,15 +10,8 @@ using Xunit.Abstractions;
 
 namespace Antelcat.FlatBuffers.SourceGenerator.Tests;
 
-public class FlatBuffersSourceGeneratorTests
+public class FlatBuffersSourceGeneratorTests(ITestOutputHelper testOutputHelper)
 {
-    private readonly ITestOutputHelper testOutputHelper;
-
-    public FlatBuffersSourceGeneratorTests(ITestOutputHelper testOutputHelper)
-    {
-        this.testOutputHelper = testOutputHelper;
-    }
-
     private const string VectorClassText = @"
 namespace TestNamespace;
 

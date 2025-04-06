@@ -4,9 +4,11 @@ using System.ComponentModel;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
+using System.Reflection.PortableExecutable;
 using System.Runtime.InteropServices;
 using System.Security.Cryptography.X509Certificates;
 using System.Text;
+using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
@@ -125,6 +127,7 @@ public class FlatBuffersSourceGenerator : IIncrementalGenerator
                 if (!Generate(tempPath,
                     flatc,
                     string.Join(" ", args),
+                    c.CancellationToken,
                     s.Left.Where(static x => Path.GetExtension(x.Path) == ".fbs")
                         .Select(x => x.Path).ToArray()))
                 {
@@ -133,6 +136,7 @@ public class FlatBuffersSourceGenerator : IIncrementalGenerator
 
                 foreach (var (name, content) in Collect(tempPath))
                 {
+                    c.CancellationToken.ThrowIfCancellationRequested();
                     var fin = flatReplaces.Aggregate(content, (a, config)
                         => a.Replace(config.from!, config.to!));
                     c.AddSource(name.Replace('/', '.').Replace('\\', '.'),
@@ -146,12 +150,14 @@ public class FlatBuffersSourceGenerator : IIncrementalGenerator
     private static bool Generate(string outputDir,
                                  string flatc,
                                  string? arguments = null,
+                                 CancellationToken token = default,
                                  params string[] fbs)
     {
         foreach (var rest in ShorterThan(fbs,
             2080 - flatc.Length - $"-n {arguments}".Length, // rest length for fbs
             (each, _) => ' ' + each))
         {
+            token.ThrowIfCancellationRequested();
             lock (RunLocker)
             {
                 try
@@ -165,6 +171,7 @@ public class FlatBuffersSourceGenerator : IIncrementalGenerator
                     });
                     while (process?.HasExited is false)
                     {
+                        token.ThrowIfCancellationRequested();
                     }
                 }
                 catch (Win32Exception)

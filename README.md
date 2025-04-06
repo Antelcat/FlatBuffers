@@ -4,7 +4,7 @@ Auto generate class from `.fbs` files
 
 ## Flatc download (Optional)
 
-[Flatc binary](https://github.com/google/flatbuffers/releases/tag/v24.3.25)
+[Flatc binary](https://github.com/google/flatbuffers/releases)
 
 ## Usage
 
